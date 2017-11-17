@@ -1,0 +1,268 @@
+#define USE_SERIAL Serial
+#include <ESP8266WiFiMulti.h>
+#include <ESP8266HTTPClient.h>
+ESP8266WiFiMulti WiFiMulti;
+#include <Adafruit_NeoPixel.h>
+#define NUM_LEDS 30
+#define BRIGHTNESS 255
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266_SSL.h>
+
+BlynkTimer timer;
+BlynkTimer timer2;
+BlynkTimer timer3;
+
+String hora="00:00";
+String temp="00";
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_LEDS, D1, NEO_GRB + NEO_KHZ800);
+int contador=0;
+int r=0;int g=0; int b=255;
+int ra=0;int ga=0; int ba=255;
+char auth[] = "07e7c5dcd20f45e1b6e2ccb7c6f3adcd";
+
+char ssid[] = "MI";
+char pass[] = "moralesmartinezwifi";
+long n=0;
+
+void setup(){
+  
+  timer.setInterval(1000L, cadaSegundo);
+  timer2.setInterval(30000L,cadaMinuto);
+  timer3.setInterval(10800000,cada3Horas);
+  USE_SERIAL.begin(115200);
+  Blynk.begin(auth, ssid, pass);
+  WiFiMulti.addAP("MI", "moralesmartinezwifi");
+  pixels.setBrightness(BRIGHTNESS);
+  pixels.begin();
+  forecast();
+  geonames();
+  weather();
+
+}
+
+void loop()
+{  
+  n++;
+  Blynk.run();
+  timer.run();
+  timer2.run();
+  timer3.run();
+}
+
+void cada3Horas(){
+  forecast();
+  }
+
+void cadaSegundo()
+{
+pintaDisplay();
+}
+
+void cadaMinuto()
+{
+geonames();
+weather();
+}
+
+BLYNK_WRITE(V1) // zeRGBa assigned to V1 
+{
+    // get a RED channel value
+    r = param[0].asInt();
+    // get a GREEN channel value
+    g = param[1].asInt();
+    // get a BLUE channel value
+    b = param[2].asInt();
+    pixels.show();
+}
+
+BLYNK_WRITE(V0) //Button Widget is writing to pin V0
+{
+  int pinData = param.asInt(); 
+  pixels.setBrightness(pinData);
+  pixels.show();
+}
+
+void geonames(){
+    if((WiFiMulti.run() == WL_CONNECTED)) {
+        HTTPClient http;
+        USE_SERIAL.print("[HTTP] begin...\n");
+        http.begin("http://api.geonames.org/timezoneJSON?formatted=true&lat=39.53&lng=2.58&username=Menyiques&style=full");
+        USE_SERIAL.print("[HTTP] GET...\n");
+        int httpCode = http.GET();
+        if(httpCode > 0) {
+            USE_SERIAL.printf("[HTTP] GET... code: %d\n", httpCode);
+            if(httpCode == HTTP_CODE_OK) {
+                int len = http.getSize();
+                uint8_t buff[512] = { 0 };
+
+                // get tcp stream
+                WiFiClient * stream = http.getStreamPtr();
+                while(http.connected() && (len > 0 || len == -1)) {
+                    size_t size = stream->available();
+                    if(size) {
+                        int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+                        USE_SERIAL.write(buff, c);
+                        if(len > 0) {len -= c;}
+                    }
+                    delay(1);
+                }
+                 String sstr = (char*)buff;
+                 int a=sstr.indexOf("time\"")+19;
+                 hora=sstr.substring(a,a+5);
+                 if (hora=="00:00"){  pixels.setBrightness(20);}
+                 if (hora=="08:00"){  pixels.setBrightness(255);}
+                USE_SERIAL.println();
+                USE_SERIAL.print("[HTTP] connection closed or file end.\n");
+            }
+        } else {
+            USE_SERIAL.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+    }
+  }
+
+void weather(){
+    if((WiFiMulti.run() == WL_CONNECTED)) {
+        HTTPClient http;
+        USE_SERIAL.print("[HTTP] begin...\n");
+        //http.begin("http://api.geonames.org/weatherIcaoJSON?ICAO=LEPA&username=Menyiques&style=full");
+        http.begin("http://api.openweathermap.org/data/2.5/weather?q=Palma,es&appid=e808a9fc312bbe9506825f1d1bb66692&units=metric");
+        
+        USE_SERIAL.print("[HTTP] GET...\n");
+        int httpCode = http.GET();
+        if(httpCode > 0) {
+            USE_SERIAL.printf("[HTTP] GET... code: %d\n", httpCode);
+            if(httpCode == HTTP_CODE_OK) {
+                int len = http.getSize();
+                uint8_t buff[512] = { 0 };
+
+                // get tcp stream
+                WiFiClient * stream = http.getStreamPtr();
+                while(http.connected() && (len > 0 || len == -1)) {
+                    size_t size = stream->available();
+                    if(size) {
+                        int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+                        USE_SERIAL.write(buff, c);
+                        if(len > 0) {len -= c;}
+                    }
+                    delay(1);
+                }
+                 String sstr = (char*)buff;
+                 //int a=sstr.indexOf("temperature\"")+14;
+                 //temp=sstr.substring(a,a+2);
+                 int a=sstr.indexOf("temp\":");
+                 temp=sstr.substring(a+6,a+8);    
+                USE_SERIAL.print("[HTTP] connection closed or file end.\n");
+            }
+        } else {
+            USE_SERIAL.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+    }
+  }
+
+void forecast(){
+    int level=0;
+    if((WiFiMulti.run() == WL_CONNECTED)) {
+        HTTPClient http;
+        USE_SERIAL.print("[HTTP] begin...\n");
+        //http.begin("http://api.geonames.org/weatherIcaoJSON?ICAO=LEPA&username=Menyiques&style=full");
+        http.begin("http://api.openweathermap.org/data/2.5/forecast?q=Palma&mode=xml&appid=e808a9fc312bbe9506825f1d1bb66692&units=metric&type=accurate");
+        
+        USE_SERIAL.print("[HTTP] GET...\n");
+        int httpCode = http.GET();
+        if(httpCode > 0) {
+            USE_SERIAL.printf("[HTTP] GET... code: %d\n", httpCode);
+            if(httpCode == HTTP_CODE_OK) {
+                int len = http.getSize();
+                uint8_t buff[512] = { 0 };
+
+                // get tcp stream
+                WiFiClient * stream = http.getStreamPtr();
+                int muestras=0;
+                 while(http.connected() && (len > 0 || len == -1)) {
+                    size_t size = stream->available();
+                    if(size) {
+                        int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+                        //USE_SERIAL.write(buff, c);
+                        if(len > 0) {len -= c;}
+                    }
+                    delay(1);
+                 String sstr = (char*)buff;
+                 while ((sstr.indexOf("number")>=0)&&(muestras<8)){
+                      muestras++;
+                      int b=sstr.indexOf("number");
+                      String number=sstr.substring(b+8, b+11);
+                      int ni=number.toInt();
+                      
+                      if ((level==0)&&(
+                         (ni==500)||(ni==501)||
+                         ((ni>=300)&&(ni<400))||
+                         ((ni>=700)&&(ni<800))||
+                         ((ni>=900)&&(ni<=906))||
+                         (ni==957)
+                         )){level=1;ra=255;ga=140;ba=0;}
+                         
+                      if ((level==1)&&(
+                         ((ni>=200)&&(ni<=299))||
+                         ((ni>=502)&&(ni<=550))||
+                         ((ni>=600)&&(ni<=699))||
+                         ((ni>=958)&&(ni<=956))
+                         )){level=2;ra=255;ga=0;ba=0;}
+                         
+                          
+                      sstr=sstr.substring(b+6);
+                      }  
+                }  
+           USE_SERIAL.print("[HTTP] connection closed or file end.\n");
+         }
+        } else {
+            USE_SERIAL.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        }
+        http.end();
+        USE_SERIAL.print("Level:");
+        USE_SERIAL.println(level);
+    }
+  }
+
+
+  
+void pintaDisplay(){
+  contador=contador+1;
+  if (contador%10<5){
+  numero(3,hora.substring(0,1).toInt(),r,g,b);
+  numero(2,hora.substring(1,2).toInt(),r,g,b);
+  numero(1,hora.substring(3,4).toInt(),r,g,b);
+  numero(0,hora.substring(4,5).toInt(),r,g,b);
+    if (contador%2==0) 
+    {pixels.setPixelColor(0,r,g,b);pixels.setPixelColor(1,r,g,b);} 
+  else 
+    {pixels.setPixelColor(0,0,0,0);pixels.setPixelColor(1,0,0,0);} 
+  }else{
+  pixels.setPixelColor(0,0,0,0);pixels.setPixelColor(1,0,0,0);  
+  numero(0,8,0,0,0);
+  numero(1,10,ra,ga,ba);     
+  numero(3,temp.substring(0,1).toInt(),ra,ga,ba);
+  numero(2,temp.substring(1,2).toInt(),ra,ga,ba); 
+    }
+  pixels.show();
+  }
+  
+void numero(int pos, int n, int r, int g, int b){
+  pos=3-pos;
+  int num[11][8]={{6,0,1,2,3,4,5},{2,1,2},{5,0,1,6,4,3},{5,0,1,2,3,6},{4,5,1,6,2},{5,0,5,6,2,3},{6,0,5,6,2,3,4},{3,0,1,2},{7,0,1,2,3,4,5,6},{6,0,1,6,5,2,3},{4,0,1,5,6}};
+  int seg[4][7]={
+    {25,24,28,29,30,26,27},
+    {18,17,21,22,23,19,20},
+    {8,9,5,4,3,7,6},
+    {11,10,14,15,16,12,13}
+  };
+
+
+  for (int i=0;i<7;i++){pixels.setPixelColor(seg[pos][i]-1,0,0,0);}
+  for (int i=0; i<num[n][0];i++){
+    pixels.setPixelColor(seg[pos][num[n][i+1]]-1,r,g,b);
+   
+  }  
+   pixels.show();
+  }
