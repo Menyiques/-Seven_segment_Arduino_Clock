@@ -19,7 +19,6 @@ BlynkTimer timer3h;
 
 const uint8_t fingerprint[20] = {0x87,0x92,0x82,0xF8,0xB8,0x15,0x1A,0xB2,0xD4,0xC3,0xB7,0xBE,0x69,0xE6,0xF8,0x12,0x0B,0xD5,0x23,0x61};
 
-//String mirubee_token="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJtaXJ1YmVlLmNvbSIsImlhdCI6MTYwOTM1NDkyMiwiZXhwIjoxNjA5OTU5NzIyLCJ1c2VyX2lkIjoxMzA4OCwiZW1haWwiOiJzbW9yYWxlc2dAZ21haWwuY29tIiwibGFuZ3VhZ2UiOiJlcyIsImNsaWVudF90eXBlX2lkIjoiYW5kcm9pZCIsImlzc3VlZEF0IjoiMjAyMC0xMi0zMFQxOTowMjowMiswMDAwIn0.u-c4N-cZY5AMpR7Nl6aiy8VrDxWlykz65kvLg4v4oE4";
 String mirubee_token="";
 
 String watts="";
